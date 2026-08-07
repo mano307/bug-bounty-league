@@ -1,0 +1,513 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import { AlertTriangle, Clock, Loader2, Send, ShieldAlert, Terminal } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { useAntiCheat } from "@/lib/anti-cheat";
+import { getExamPayload, saveAnswer, startAttempt, submitAttempt } from "@/lib/exam.functions";
+import { LANGUAGES, ROUND_NAMES, formatClock, seededShuffle } from "@/lib/exam-shared";
+import { CodeEditor } from "@/components/code-editor";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export const Route = createFileRoute("/rounds/$roundId")({
+  head: () => ({
+    meta: [
+      { title: "Competition Round — DebugX" },
+      {
+        name: "description",
+        content:
+          "Proctored DebugX competition round with live timer, anti-cheat monitoring and instant submission.",
+      },
+      { name: "robots", content: "noindex" },
+      { property: "og:title", content: "Competition Round — DebugX" },
+      { property: "og:description", content: "Proctored DebugX competition round." },
+    ],
+  }),
+  component: RoundPage,
+});
+
+function RoundPage() {
+  const { roundId } = Route.useParams();
+  const round = Number(roundId);
+  const navigate = useNavigate();
+  const { user, profile, loading } = useAuth();
+
+  const loadPayload = useServerFn(getExamPayload);
+  const begin = useServerFn(startAttempt);
+  const persist = useServerFn(saveAnswer);
+  const finish = useServerFn(submitAttempt);
+
+  const [started, setStarted] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [code, setCode] = useState("");
+  const [language, setLanguage] = useState<string>("python");
+  const [index, setIndex] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const submittedRef = useRef(false);
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth", replace: true });
+  }, [loading, user, navigate]);
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["exam", round, user?.id],
+    queryFn: () => loadPayload({ data: { round } }),
+    enabled: Boolean(user) && round >= 1 && round <= 3,
+  });
+
+  const settings = data?.settings;
+  const maxWarnings = settings?.max_warnings ?? 3;
+  const minutes =
+    round === 1
+      ? (settings?.round1_minutes ?? 20)
+      : round === 2
+        ? (settings?.round2_minutes ?? 25)
+        : (settings?.round3_minutes ?? 30);
+
+  const questions = useMemo(() => {
+    const list = data?.questions ?? [];
+    if (round !== 1) return list;
+    return seededShuffle(list, user?.id ?? "seed");
+  }, [data?.questions, round, user?.id]);
+
+  const current = questions[index];
+
+  // hydrate saved work
+  useEffect(() => {
+    if (!data) return;
+    const map: Record<string, number> = {};
+    for (const a of data.savedAnswers) {
+      if (a.selected_index !== null) map[a.question_id] = a.selected_index;
+    }
+    setAnswers(map);
+    const savedCode = data.savedAnswers.find((a) => a.code)?.code;
+    if (savedCode) setCode(savedCode);
+    if (data.attempt?.status === "in_progress") setStarted(true);
+  }, [data]);
+
+  useEffect(() => {
+    if (round !== 1 && current && !code) {
+      setCode(current.code ?? "");
+      if (current.language) setLanguage(current.language);
+    }
+  }, [current, round, code]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const deadline = data?.attempt?.started_at
+    ? new Date(data.attempt.started_at).getTime() + minutes * 60_000
+    : null;
+  const remaining = deadline ? deadline - now : minutes * 60_000;
+
+  const doSubmit = useCallback(
+    async (auto: boolean) => {
+      if (submittedRef.current) return;
+      submittedRef.current = true;
+      setSubmitting(true);
+      try {
+        await finish({
+          data: {
+            round,
+            auto_submitted: auto,
+            ...(round === 1
+              ? {}
+              : { code, language, ...(current ? { question_id: current.id } : {}) }),
+          },
+        });
+        if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+        toast.success(auto ? "Time up — attempt submitted" : "Attempt submitted");
+        navigate({ to: "/results" });
+      } catch (err) {
+        submittedRef.current = false;
+        toast.error(err instanceof Error ? err.message : "Could not submit");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [finish, round, code, language, current, navigate],
+  );
+
+  const { warnings } = useAntiCheat({
+    userId: user?.id,
+    round,
+    maxWarnings,
+    active: started && !submittedRef.current,
+    onLimitExceeded: () => void doSubmit(true),
+    actorName: profile?.full_name ?? "",
+    registerNumber: profile?.register_number ?? "",
+  });
+
+  // auto-submit on expiry
+  useEffect(() => {
+    if (!started || !deadline || submittedRef.current) return;
+    if (remaining <= 0 && (settings?.auto_submit ?? true)) void doSubmit(true);
+  }, [remaining, started, deadline, settings?.auto_submit, doSubmit]);
+
+  // periodic autosave for code rounds
+  useEffect(() => {
+    if (!started || round === 1 || !current) return;
+    const t = setInterval(() => {
+      void persist({ data: { round, question_id: current.id, code } }).catch(() => {});
+    }, 20000);
+    return () => clearInterval(t);
+  }, [started, round, current, code, persist]);
+
+  async function handleStart() {
+    try {
+      await begin({ data: { round } });
+      await document.documentElement.requestFullscreen().catch(() => {});
+      setStarted(true);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not start this round");
+    }
+  }
+
+  function pick(questionId: string, optionIndex: number) {
+    setAnswers((prev) => ({ ...prev, [questionId]: optionIndex }));
+    void persist({ data: { round, question_id: questionId, selected_index: optionIndex } }).catch(
+      () => {},
+    );
+  }
+
+  if (isLoading || loading) {
+    return (
+      <div className="hero-bg grid min-h-screen place-items-center">
+        <Loader2 className="size-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (round < 1 || round > 3) {
+    return <Notice title="Unknown round" body="That round does not exist." />;
+  }
+
+  const state = data?.access?.state ?? "locked";
+  if (data?.attempt && data.attempt.status !== "in_progress") {
+    return (
+      <Notice
+        title="Round already submitted"
+        body="Your attempt for this round is locked. Head to your results to review it."
+        action={{ label: "View results", to: "/results" }}
+      />
+    );
+  }
+  if (!["unlocked", "in_progress"].includes(state)) {
+    return (
+      <Notice
+        title="Round locked"
+        body={
+          state === "eliminated"
+            ? "You were not promoted to this round."
+            : "The control room has not unlocked this round for you yet."
+        }
+        action={{ label: "Back to dashboard", to: "/dashboard" }}
+      />
+    );
+  }
+
+  if (!started) {
+    return (
+      <div className="hero-bg grid min-h-screen place-items-center px-4 py-12">
+        <div className="glass w-full max-w-xl rounded-lg p-8">
+          <span className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
+            <Terminal className="size-5" />
+          </span>
+          <p className="mt-4 font-mono text-xs uppercase tracking-[0.3em] text-primary">
+            Round {round}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold">{ROUND_NAMES[round]}</h1>
+          <ul className="mt-5 space-y-2 text-sm text-muted-foreground">
+            <li>› Duration: {minutes} minutes. The timer starts the moment you begin.</li>
+            <li>› {questions.length} question{questions.length === 1 ? "" : "s"} in this round.</li>
+            <li>› Full-screen is enforced. Tab switching, copy, paste and right-click are logged.</li>
+            <li>› {maxWarnings} warnings allowed — the next violation submits your attempt.</li>
+          </ul>
+          <div className="mt-6 flex gap-3">
+            <Button onClick={handleStart} className="flex-1">
+              Begin round
+            </Button>
+            <Button variant="outline" onClick={() => navigate({ to: "/dashboard" })}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const answeredCount = Object.keys(answers).length;
+  const critical = remaining <= 60_000;
+
+  return (
+    <div className="hero-bg flex min-h-screen flex-col select-none">
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="live-dot" />
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                Round {round} · {ROUND_NAMES[round]}
+              </p>
+              <p className="text-sm font-medium">{profile?.full_name ?? "Participant"}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="border-warning/50 text-warning">
+              <AlertTriangle className="size-3.5" /> {warnings}/{maxWarnings}
+            </Badge>
+            <span
+              className={`flex items-center gap-2 rounded-md border px-3 py-1.5 font-mono text-sm ${
+                critical
+                  ? "animate-pulse border-destructive/60 text-destructive"
+                  : "border-border/60 text-primary"
+              }`}
+            >
+              <Clock className="size-4" /> {formatClock(remaining)}
+            </span>
+            <Button size="sm" onClick={() => setConfirmOpen(true)} disabled={submitting}>
+              {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              Submit
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">
+        {questions.length === 0 ? (
+          <p className="glass rounded-lg p-6 text-sm text-muted-foreground">
+            No questions are configured for this round yet.
+          </p>
+        ) : round === 1 ? (
+          <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
+            <article className="glass rounded-lg p-6">
+              <div className="flex items-center justify-between">
+                <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                  Question {index + 1} of {questions.length}
+                </p>
+                <Badge variant="outline">{current?.difficulty}</Badge>
+              </div>
+              <h2 className="mt-3 text-lg font-semibold">{current?.title}</h2>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">{current?.prompt}</p>
+              {current?.code ? (
+                <pre className="mt-4 overflow-x-auto rounded-md border border-border/60 bg-surface-2/60 p-4 font-mono text-xs leading-relaxed">
+                  {current.code}
+                </pre>
+              ) : null}
+
+              <div className="mt-5 space-y-2">
+                {(current?.options ?? []).map((opt, i) => {
+                  const selected = current ? answers[current.id] === i : false;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => current && pick(current.id, i)}
+                      className={`flex w-full items-start gap-3 rounded-md border p-3 text-left text-sm transition-colors ${
+                        selected
+                          ? "border-primary/70 bg-primary/10 text-foreground"
+                          : "border-border/60 hover:border-primary/40 hover:bg-surface-2/50"
+                      }`}
+                    >
+                      <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded border border-current font-mono text-[10px]">
+                        {String.fromCharCode(65 + i)}
+                      </span>
+                      <span className="font-mono">{opt}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 flex justify-between">
+                <Button
+                  variant="outline"
+                  disabled={index === 0}
+                  onClick={() => setIndex((i) => Math.max(0, i - 1))}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={index >= questions.length - 1}
+                  onClick={() => setIndex((i) => Math.min(questions.length - 1, i + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            </article>
+
+            <aside className="glass h-fit rounded-lg p-5">
+              <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                Answer sheet
+              </p>
+              <p className="mt-1 text-sm">
+                <span className="font-mono text-primary">{answeredCount}</span> of {questions.length}{" "}
+                answered
+              </p>
+              <div className="mt-4 grid grid-cols-6 gap-2">
+                {questions.map((q, i) => {
+                  const done = answers[q.id] !== undefined;
+                  return (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => setIndex(i)}
+                      className={`grid size-8 place-items-center rounded border font-mono text-xs transition-colors ${
+                        i === index
+                          ? "border-primary bg-primary/20 text-primary"
+                          : done
+                            ? "border-success/60 bg-success/10 text-success"
+                            : "border-border/60 text-muted-foreground hover:border-primary/40"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground">
+                <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
+                Answers save automatically as you select them.
+              </p>
+            </aside>
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[400px_1fr]">
+            <article className="glass max-h-[calc(100vh-11rem)] overflow-y-auto rounded-lg p-5">
+              <div className="flex items-center justify-between">
+                <Badge variant="outline">{current?.category ?? "Debugging"}</Badge>
+                <Badge variant="outline">{current?.difficulty}</Badge>
+              </div>
+              <h2 className="mt-3 text-lg font-semibold">{current?.title}</h2>
+              <p className="mt-2 whitespace-pre-wrap text-sm text-foreground/90">{current?.prompt}</p>
+              {current?.sample_input ? (
+                <Block label="Sample input" body={current.sample_input} />
+              ) : null}
+              {current?.sample_output ? (
+                <Block label="Sample output" body={current.sample_output} />
+              ) : null}
+              {current?.constraints ? (
+                <Block label="Constraints" body={current.constraints} />
+              ) : null}
+              {questions.length > 1 ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {questions.map((q, i) => (
+                    <button
+                      key={q.id}
+                      type="button"
+                      onClick={() => {
+                        setIndex(i);
+                        setCode(q.code ?? "");
+                      }}
+                      className={`rounded border px-2 py-1 font-mono text-xs ${
+                        i === index
+                          ? "border-primary text-primary"
+                          : "border-border/60 text-muted-foreground"
+                      }`}
+                    >
+                      Q{i + 1}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+
+            <div className="glass flex h-[calc(100vh-11rem)] flex-col overflow-hidden rounded-lg">
+              <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
+                <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                  editor · {language}
+                </p>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="rounded border border-border/60 bg-surface-2 px-2 py-1 font-mono text-xs text-foreground"
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <CodeEditor value={code} language={language} onChange={setCode} />
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Submit this round?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {round === 1
+                ? `You have answered ${answeredCount} of ${questions.length} questions. `
+                : "Your current code will be sent for evaluation. "}
+              Submissions are final and cannot be reopened.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep working</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void doSubmit(false)}>Submit now</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function Block({ label, body }: { label: string; body: string }) {
+  return (
+    <div className="mt-4">
+      <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      <pre className="mt-1 overflow-x-auto rounded-md border border-border/60 bg-surface-2/60 p-3 font-mono text-xs">
+        {body}
+      </pre>
+    </div>
+  );
+}
+
+function Notice({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  action?: { label: string; to: string };
+}) {
+  const navigate = useNavigate();
+  return (
+    <div className="hero-bg grid min-h-screen place-items-center px-4">
+      <div className="glass max-w-md rounded-lg p-8 text-center">
+        <h1 className="text-xl font-semibold">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{body}</p>
+        {action ? (
+          <Button className="mt-5" onClick={() => navigate({ to: action.to })}>
+            {action.label}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}

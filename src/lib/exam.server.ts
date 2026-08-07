@@ -19,7 +19,6 @@ export type PublicQuestion = {
   sample_input: string | null;
   sample_output: string | null;
   constraints: string | null;
-  starter_code: string | null;
 };
 
 /** Strips answer keys and hidden test cases before a question reaches a participant. */
@@ -38,7 +37,6 @@ export function sanitizeQuestion(q: QuestionRow): PublicQuestion {
     sample_input: q.sample_input,
     sample_output: q.sample_output,
     constraints: q.constraints,
-    starter_code: q.starter_code,
   };
 }
 
@@ -138,6 +136,11 @@ export async function buildLeaderboard(admin: Admin, round: number): Promise<Lea
     );
 }
 
+/** Drops undefined keys so partial payloads satisfy exactOptionalPropertyTypes. */
+export function compact<T extends Record<string, unknown>>(obj: T) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+}
+
 export const settingsInputSchema = z.object({
   event_name: z.string().max(120).optional(),
   round1_minutes: z.number().int().min(1).max(600).optional(),
@@ -163,15 +166,13 @@ export const questionInputSchema = z.object({
   language: z.string().max(20).nullable().optional(),
   options: z.array(z.string().max(500)).default([]),
   correct_index: z.number().int().min(0).max(9).nullable().optional(),
-  explanation: z.string().max(4000).nullable().optional(),
   expected_output: z.string().max(4000).nullable().optional(),
-  starter_code: z.string().max(20000).nullable().optional(),
   sample_input: z.string().max(4000).nullable().optional(),
   sample_output: z.string().max(4000).nullable().optional(),
   constraints: z.string().max(2000).nullable().optional(),
   test_cases: z.array(z.object({ input: z.string(), expected: z.string() })).default([]),
   difficulty: z.enum(["easy", "medium", "hard"]),
-  category: z.string().max(80).nullable().optional(),
+  category: z.string().max(80).default("General"),
   marks: z.number().min(0).max(1000),
   active: z.boolean().default(true),
 });

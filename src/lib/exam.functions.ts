@@ -9,6 +9,7 @@ import {
   sanitizeQuestion,
   scoreMcq,
   settingsInputSchema,
+  compact,
 } from "./exam.server";
 
 export const getExamPayload = createServerFn({ method: "POST" })
@@ -398,7 +399,7 @@ export const adminUpdateSettings = createServerFn({ method: "POST" })
     await assertAdmin(supabaseAdmin, context.userId);
     const { error } = await supabaseAdmin
       .from("event_settings")
-      .update({ ...data, updated_at: new Date().toISOString() })
+      .update({ ...compact(data), updated_at: new Date().toISOString() })
       .eq("id", 1);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -471,7 +472,8 @@ export const adminSaveQuestion = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await assertAdmin(supabaseAdmin, context.userId);
-    const { id, ...fields } = data;
+    const { id, ...rest } = data;
+    const fields = compact(rest);
     if (id) {
       const { error } = await supabaseAdmin.from("questions").update(fields).eq("id", id);
       if (error) throw new Error(error.message);

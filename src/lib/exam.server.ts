@@ -155,8 +155,9 @@ export const settingsInputSchema = z.object({
   leaderboard_public: z.boolean().optional(),
   leaderboard_frozen: z.boolean().optional(),
   results_published: z.boolean().optional(),
-  registration_open: z.boolean().optional(),
-  active_round: z.number().int().min(0).max(3).optional(),
+  round1_status: z.enum(["pending", "live", "closed"]).optional(),
+  round2_status: z.enum(["pending", "live", "closed"]).optional(),
+  round3_status: z.enum(["pending", "live", "closed"]).optional(),
 });
 
 export const questionInputSchema = z.object({

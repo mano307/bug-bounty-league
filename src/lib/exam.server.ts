@@ -138,7 +138,9 @@ export async function buildLeaderboard(admin: Admin, round: number): Promise<Lea
 
 /** Drops undefined keys so partial payloads satisfy exactOptionalPropertyTypes. */
 export function compact<T extends Record<string, unknown>>(obj: T) {
-  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+  return Object.fromEntries(
+    Object.entries(obj).filter(([, v]) => v !== undefined),
+  ) as { [K in keyof T]-?: Exclude<T[K], undefined> };
 }
 
 export const settingsInputSchema = z.object({

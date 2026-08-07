@@ -54,7 +54,10 @@ function AuthPage() {
       password: String(fd.get("password") ?? ""),
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success("Signed in");
     navigate({ to: "/dashboard" });
   }
@@ -63,7 +66,10 @@ function AuthPage() {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const parsed = signUpSchema.safeParse(Object.fromEntries(fd));
-    if (!parsed.success) return toast.error(parsed.error.issues[0]?.message ?? "Invalid details");
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? "Invalid details");
+      return;
+    }
     const { email, password, ...meta } = parsed.data;
 
     setBusy(true);
@@ -73,8 +79,14 @@ function AuthPage() {
       options: { emailRedirectTo: window.location.origin, data: meta },
     });
     setBusy(false);
-    if (error) return toast.error(error.message);
-    if (!data.session) return toast.info("Check your email to confirm your account.");
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (!data.session) {
+      toast.info("Check your email to confirm your account.");
+      return;
+    }
     toast.success("Registered — Round 1 is unlocked");
     navigate({ to: "/rules" });
   }
@@ -86,11 +98,13 @@ function AuthPage() {
     });
     if (result.error) {
       setBusy(false);
-      return toast.error("Google sign-in failed");
+      toast.error("Google sign-in failed");
+      return;
     }
     if (result.redirected) return;
     navigate({ to: "/dashboard" });
   }
+
 
   return (
     <div className="hero-bg grid min-h-screen place-items-center px-4 py-12">

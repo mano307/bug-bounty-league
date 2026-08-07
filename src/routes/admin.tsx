@@ -438,8 +438,10 @@ function AdminPage() {
                                   );
                                   if (raw === null) return;
                                   const value = Number(raw);
-                                  if (Number.isNaN(value) || value < 0)
-                                    return toast.error("Enter a valid score");
+                                  if (Number.isNaN(value) || value < 0) {
+                                    toast.error("Enter a valid score");
+                                    return;
+                                  }
                                   const remarks = window.prompt("Judge remarks", a.judge_remarks ?? "") ?? "";
                                   mutate.mutate(async () => {
                                     await overrideScore({

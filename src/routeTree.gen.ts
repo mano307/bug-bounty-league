@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
+import { Route as ResultsRouteImport } from './routes/results'
 import { Route as RulesRouteImport } from './routes/rules'
 import { Route as RoundsRoundIdRouteImport } from './routes/rounds.$roundId'
 
@@ -36,6 +37,11 @@ const LeaderboardRoute = LeaderboardRouteImport.update({
   path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ResultsRoute = ResultsRouteImport.update({
+  id: '/results',
+  path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RulesRoute = RulesRouteImport.update({
   id: '/rules',
   path: '/rules',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
   '/rounds/$roundId': typeof RoundsRoundIdRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
   '/rounds/$roundId': typeof RoundsRoundIdRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/leaderboard': typeof LeaderboardRoute
+  '/results': typeof ResultsRoute
   '/rules': typeof RulesRoute
   '/rounds/$roundId': typeof RoundsRoundIdRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/leaderboard'
+    | '/results'
     | '/rules'
     | '/rounds/$roundId'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/leaderboard'
+    | '/results'
     | '/rules'
     | '/rounds/$roundId'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/leaderboard'
+    | '/results'
     | '/rules'
     | '/rounds/$roundId'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   LeaderboardRoute: typeof LeaderboardRoute
+  ResultsRoute: typeof ResultsRoute
   RulesRoute: typeof RulesRoute
   RoundsRoundIdRoute: typeof RoundsRoundIdRoute
 }
@@ -138,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/results': {
+      id: '/results'
+      path: '/results'
+      fullPath: '/results'
+      preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rules': {
       id: '/rules'
       path: '/rules'
@@ -160,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   LeaderboardRoute: LeaderboardRoute,
+  ResultsRoute: ResultsRoute,
   RulesRoute: RulesRoute,
   RoundsRoundIdRoute: RoundsRoundIdRoute,
 }

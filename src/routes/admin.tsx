@@ -25,7 +25,6 @@ import {
   adminReevaluate,
   adminSetRoundState,
   adminUpdateSettings,
-  claimFirstAdmin,
 } from "@/lib/exam.functions";
 import { formatDuration } from "@/lib/exam-shared";
 import { Button } from "@/components/ui/button";
@@ -54,13 +53,12 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-function AdminPage() {
+export function AdminPage() {
   const { user, isAdmin, loading, refresh } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const fetchOverview = useServerFn(adminOverview);
-  const claim = useServerFn(claimFirstAdmin);
   const setRoundState = useServerFn(adminSetRoundState);
   const updateSettings = useServerFn(adminUpdateSettings);
   const broadcast = useServerFn(adminBroadcast);

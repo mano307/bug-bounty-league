@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Bot,
   Loader2,
+  Lock,
   Megaphone,
   Radio,
   Settings2,
@@ -201,7 +202,7 @@ function AdminPage() {
                 </span>
                 {[1, 2, 3].map((r) => (
                   <Button
-                    key={r}
+                    key={`unlock-${r}`}
                     size="sm"
                     variant="outline"
                     disabled={selected.length === 0}
@@ -214,6 +215,53 @@ function AdminPage() {
                     Unlock R{r}
                   </Button>
                 ))}
+                {[1, 2, 3].map((r) => (
+                  <Button
+                    key={`lock-${r}`}
+                    size="sm"
+                    variant="secondary"
+                    disabled={selected.length === 0}
+                    onClick={() =>
+                      mutate.mutate(() =>
+                        setRoundState({ data: { user_ids: selected, round: r, state: "locked" } }),
+                      )
+                    }
+                  >
+                    <Lock className="size-3.5" /> Lock R{r}
+                  </Button>
+                ))}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={selected.length === 0}
+                  onClick={() =>
+                    mutate.mutate(async () => {
+                      for (const r of [1, 2, 3]) {
+                        await setRoundState({
+                          data: { user_ids: selected, round: r, state: "locked" },
+                        });
+                      }
+                    })
+                  }
+                >
+                  <Lock className="size-3.5" /> Lock all rounds
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={profiles.length === 0}
+                  onClick={() => {
+                    if (!window.confirm("Lock all three rounds for every participant?")) return;
+                    mutate.mutate(async () => {
+                      const ids = profiles.map((p) => p.id);
+                      for (const r of [1, 2, 3]) {
+                        await setRoundState({ data: { user_ids: ids, round: r, state: "locked" } });
+                      }
+                    });
+                  }}
+                >
+                  <Lock className="size-3.5" /> Lock everyone
+                </Button>
                 <Button
                   size="sm"
                   variant="destructive"
@@ -226,6 +274,7 @@ function AdminPage() {
                     )
                   }
                 >
+
                   Eliminate
                 </Button>
               </div>

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 import { Terminal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ const signUpSchema = z.object({
   register_number: z.string().trim().min(2, "Enter your register number").max(30),
   department: z.string().trim().max(60),
   year: z.string().trim().max(20),
-  college: z.string().trim().max(80),
+  section: z.string().trim().max(20),
   email: z.string().trim().email("Enter a valid email").max(255),
   password: z.string().min(8, "Password must be at least 8 characters").max(72),
 });
@@ -91,19 +91,8 @@ function AuthPage() {
     navigate({ to: "/rules" });
   }
 
-  async function handleGoogle() {
-    setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      setBusy(false);
-      toast.error("Google sign-in failed");
-      return;
-    }
-    if (result.redirected) return;
-    navigate({ to: "/dashboard" });
-  }
+
+
 
 
   return (
@@ -139,11 +128,11 @@ function AuthPage() {
               <form onSubmit={handleSignUp} className="space-y-3">
                 <Field label="Full name" name="full_name" required />
                 <Field label="Register number" name="register_number" required />
+                <Field label="Department" name="department" placeholder="CSE" />
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Department" name="department" placeholder="CSE" />
                   <Field label="Year" name="year" placeholder="III" />
+                  <Field label="Section" name="section" placeholder="A" />
                 </div>
-                <Field label="College" name="college" placeholder="Your college" />
                 <Field label="Email" name="email" type="email" required />
                 <Field label="Password" name="password" type="password" required />
                 <Button type="submit" className="w-full" disabled={busy}>
@@ -152,18 +141,6 @@ function AuthPage() {
               </form>
             </TabsContent>
           </Tabs>
-
-          <div className="my-5 flex items-center gap-3">
-            <span className="h-px flex-1 bg-border" />
-            <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-              or
-            </span>
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
-          <Button variant="outline" className="w-full" onClick={handleGoogle} disabled={busy}>
-            Continue with Google
-          </Button>
         </div>
       </div>
     </div>

@@ -232,35 +232,35 @@ export type Database = {
       }
       profiles: {
         Row: {
-          college: string
           created_at: string
           department: string
           email: string
           full_name: string
           id: string
           register_number: string
+          section: string
           updated_at: string
           year: string
         }
         Insert: {
-          college?: string
           created_at?: string
           department?: string
           email?: string
           full_name?: string
           id: string
           register_number?: string
+          section?: string
           updated_at?: string
           year?: string
         }
         Update: {
-          college?: string
           created_at?: string
           department?: string
           email?: string
           full_name?: string
           id?: string
           register_number?: string
+          section?: string
           updated_at?: string
           year?: string
         }

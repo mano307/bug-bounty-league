@@ -90,7 +90,7 @@ export type LeaderboardRow = {
   user_id: string;
   full_name: string;
   register_number: string;
-  college: string | null;
+  section: string | null;
   score: number;
   max_score: number;
   duration_seconds: number;
@@ -101,7 +101,7 @@ export type LeaderboardRow = {
 
 export async function buildLeaderboard(admin: Admin, round: number): Promise<LeaderboardRow[]> {
   const [{ data: profiles }, { data: attempts }, { data: access }] = await Promise.all([
-    admin.from("profiles").select("id, full_name, register_number, college"),
+    admin.from("profiles").select("id, full_name, register_number, department, year, section"),
     admin.from("attempts").select("*"),
     admin.from("round_access").select("user_id, round, state"),
   ]);
@@ -115,7 +115,7 @@ export async function buildLeaderboard(admin: Admin, round: number): Promise<Lea
       user_id: p.id,
       full_name: p.full_name,
       register_number: p.register_number,
-      college: p.college,
+      section: [p.department, p.year, p.section].filter(Boolean).join(" · ") || null,
       score: mine.reduce((s, a) => s + Number(a.score ?? 0), 0),
       max_score: mine.reduce((s, a) => s + Number(a.max_score ?? 0), 0),
       duration_seconds: mine.reduce((s, a) => s + Number(a.duration_seconds ?? 0), 0),

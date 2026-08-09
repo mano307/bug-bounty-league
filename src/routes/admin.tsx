@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   Bot,
   Loader2,
+  Lock,
   Megaphone,
   Radio,
   Settings2,
@@ -24,7 +25,6 @@ import {
   adminReevaluate,
   adminSetRoundState,
   adminUpdateSettings,
-  claimFirstAdmin,
 } from "@/lib/exam.functions";
 import { formatDuration } from "@/lib/exam-shared";
 import { Button } from "@/components/ui/button";
@@ -53,13 +53,12 @@ export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-function AdminPage() {
+export function AdminPage() {
   const { user, isAdmin, loading, refresh } = useAuth();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const fetchOverview = useServerFn(adminOverview);
-  const claim = useServerFn(claimFirstAdmin);
   const setRoundState = useServerFn(adminSetRoundState);
   const updateSettings = useServerFn(adminUpdateSettings);
   const broadcast = useServerFn(adminBroadcast);
@@ -125,24 +124,15 @@ function AdminPage() {
             <ShieldCheck className="mx-auto size-8 text-primary" />
             <h1 className="mt-3 text-xl font-semibold">Organiser access required</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              If this event has no administrator yet, you can claim the role for your account.
+              This control room is restricted to the DebugX organiser account. Sign in with the
+              organiser email to continue.
             </p>
-            <Button
-              className="mt-5"
-              onClick={async () => {
-                try {
-                  await claim();
-                  await refresh();
-                  toast.success("You are now the event administrator");
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Could not claim admin");
-                }
-              }}
-            >
-              Claim administrator role
+            <Button className="mt-5" variant="outline" onClick={() => void refresh()}>
+              Recheck access
             </Button>
           </div>
         </main>
+
       </div>
     );
   }
@@ -210,7 +200,7 @@ function AdminPage() {
                 </span>
                 {[1, 2, 3].map((r) => (
                   <Button
-                    key={r}
+                    key={`unlock-${r}`}
                     size="sm"
                     variant="outline"
                     disabled={selected.length === 0}
@@ -223,6 +213,53 @@ function AdminPage() {
                     Unlock R{r}
                   </Button>
                 ))}
+                {[1, 2, 3].map((r) => (
+                  <Button
+                    key={`lock-${r}`}
+                    size="sm"
+                    variant="secondary"
+                    disabled={selected.length === 0}
+                    onClick={() =>
+                      mutate.mutate(() =>
+                        setRoundState({ data: { user_ids: selected, round: r, state: "locked" } }),
+                      )
+                    }
+                  >
+                    <Lock className="size-3.5" /> Lock R{r}
+                  </Button>
+                ))}
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={selected.length === 0}
+                  onClick={() =>
+                    mutate.mutate(async () => {
+                      for (const r of [1, 2, 3]) {
+                        await setRoundState({
+                          data: { user_ids: selected, round: r, state: "locked" },
+                        });
+                      }
+                    })
+                  }
+                >
+                  <Lock className="size-3.5" /> Lock all rounds
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={profiles.length === 0}
+                  onClick={() => {
+                    if (!window.confirm("Lock all three rounds for every participant?")) return;
+                    mutate.mutate(async () => {
+                      const ids = profiles.map((p) => p.id);
+                      for (const r of [1, 2, 3]) {
+                        await setRoundState({ data: { user_ids: ids, round: r, state: "locked" } });
+                      }
+                    });
+                  }}
+                >
+                  <Lock className="size-3.5" /> Lock everyone
+                </Button>
                 <Button
                   size="sm"
                   variant="destructive"
@@ -235,6 +272,7 @@ function AdminPage() {
                     )
                   }
                 >
+
                   Eliminate
                 </Button>
               </div>

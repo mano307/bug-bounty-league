@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ControlRoomX7k9RouteImport } from './routes/control-room-x7k9'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as ResultsRouteImport } from './routes/results'
@@ -31,6 +32,11 @@ const AdminRoute = AdminRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ControlRoomX7k9Route = ControlRoomX7k9RouteImport.update({
+  id: '/control-room-x7k9',
+  path: '/control-room-x7k9',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/control-room-x7k9': typeof ControlRoomX7k9Route
   '/dashboard': typeof DashboardRoute
   '/leaderboard': typeof LeaderboardRoute
   '/results': typeof ResultsRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/control-room-x7k9': typeof ControlRoomX7k9Route
   '/dashboard': typeof DashboardRoute
   '/leaderboard': typeof LeaderboardRoute
   '/results': typeof ResultsRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/auth': typeof AuthRoute
+  '/control-room-x7k9': typeof ControlRoomX7k9Route
   '/dashboard': typeof DashboardRoute
   '/leaderboard': typeof LeaderboardRoute
   '/results': typeof ResultsRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/control-room-x7k9'
     | '/dashboard'
     | '/leaderboard'
     | '/results'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/control-room-x7k9'
     | '/dashboard'
     | '/leaderboard'
     | '/results'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/auth'
+    | '/control-room-x7k9'
     | '/dashboard'
     | '/leaderboard'
     | '/results'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AuthRoute: typeof AuthRoute
+  ControlRoomX7k9Route: typeof ControlRoomX7k9Route
   DashboardRoute: typeof DashboardRoute
   LeaderboardRoute: typeof LeaderboardRoute
   ResultsRoute: typeof ResultsRoute
@@ -155,6 +168,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/control-room-x7k9': {
+      id: '/control-room-x7k9'
+      path: '/control-room-x7k9'
+      fullPath: '/control-room-x7k9'
+      preLoaderRoute: typeof ControlRoomX7k9RouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AuthRoute: AuthRoute,
+  ControlRoomX7k9Route: ControlRoomX7k9Route,
   DashboardRoute: DashboardRoute,
   LeaderboardRoute: LeaderboardRoute,
   ResultsRoute: ResultsRoute,

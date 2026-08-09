@@ -125,24 +125,15 @@ function AdminPage() {
             <ShieldCheck className="mx-auto size-8 text-primary" />
             <h1 className="mt-3 text-xl font-semibold">Organiser access required</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              If this event has no administrator yet, you can claim the role for your account.
+              This control room is restricted to the DebugX organiser account. Sign in with the
+              organiser email to continue.
             </p>
-            <Button
-              className="mt-5"
-              onClick={async () => {
-                try {
-                  await claim();
-                  await refresh();
-                  toast.success("You are now the event administrator");
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Could not claim admin");
-                }
-              }}
-            >
-              Claim administrator role
+            <Button className="mt-5" variant="outline" onClick={() => void refresh()}>
+              Recheck access
             </Button>
           </div>
         </main>
+
       </div>
     );
   }

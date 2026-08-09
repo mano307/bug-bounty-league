@@ -96,7 +96,8 @@ function Dashboard() {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {profile?.register_number ? `${profile.register_number} · ` : ""}
-            {profile?.college ?? "Registered participant"}
+            {[profile?.department, profile?.year, profile?.section].filter(Boolean).join(" · ") ||
+              "Registered participant"}
           </p>
         </header>
 

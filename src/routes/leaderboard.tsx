@@ -82,7 +82,7 @@ function LeaderboardPage() {
                 <tr>
                   <th className="px-4 py-3 text-left">#</th>
                   <th className="px-4 py-3 text-left">Participant</th>
-                  <th className="hidden px-4 py-3 text-left sm:table-cell">College</th>
+                  <th className="hidden px-4 py-3 text-left sm:table-cell">Class</th>
                   <th className="px-4 py-3 text-right">Score</th>
                   <th className="hidden px-4 py-3 text-right md:table-cell">Time</th>
                   <th className="hidden px-4 py-3 text-right md:table-cell">Warnings</th>
@@ -116,7 +116,7 @@ function LeaderboardPage() {
                       </p>
                     </td>
                     <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                      {row.college ?? "—"}
+                      {row.section ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-primary">
                       {Math.round(row.score * 100) / 100}

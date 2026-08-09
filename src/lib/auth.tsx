@@ -9,7 +9,7 @@ export type Profile = {
   email: string;
   department: string;
   year: string;
-  college: string;
+  section: string;
 };
 
 type AuthValue = {

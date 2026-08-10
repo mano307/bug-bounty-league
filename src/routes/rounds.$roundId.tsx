@@ -3,11 +3,38 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Clock, Loader2, Send, ShieldAlert, Terminal } from "lucide-react";
+import {
+  AlertTriangle,
+  Bug,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Save,
+  Send,
+  ShieldAlert,
+  Terminal,
+  XCircle,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAntiCheat } from "@/lib/anti-cheat";
-import { getExamPayload, saveAnswer, startAttempt, submitAttempt } from "@/lib/exam.functions";
+import {
+  debugCheck,
+  getExamPayload,
+  saveAnswer,
+  startAttempt,
+  submitAttempt,
+} from "@/lib/exam.functions";
 import { LANGUAGES, ROUND_NAMES, formatClock, seededShuffle } from "@/lib/exam-shared";
+
+type DebugResult = {
+  passed: number;
+  total: number;
+  all_passed: boolean;
+  test_cases: { name: string; passed: boolean; note: string }[];
+  issues: { issue: string; severity: string; fix: string }[];
+  summary: string;
+};
+
 import { CodeEditor } from "@/components/code-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,13 +77,18 @@ function RoundPage() {
   const persist = useServerFn(saveAnswer);
   const finish = useServerFn(submitAttempt);
 
+  const runDebug = useServerFn(debugCheck);
+
   const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [code, setCode] = useState("");
+  const [codes, setCodes] = useState<Record<string, string>>({});
   const [language, setLanguage] = useState<string>("python");
   const [index, setIndex] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
+  const [savingCode, setSavingCode] = useState(false);
+  const [debugging, setDebugging] = useState(false);
+  const [debugResult, setDebugResult] = useState<DebugResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const submittedRef = useRef(false);
 
@@ -86,26 +118,34 @@ function RoundPage() {
   }, [data?.questions, round, user?.id]);
 
   const current = questions[index];
+  const code = current ? (codes[current.id] ?? current.code ?? "") : "";
+  const setCode = useCallback(
+    (value: string) => {
+      if (!current) return;
+      setCodes((prev) => ({ ...prev, [current.id]: value }));
+    },
+    [current],
+  );
 
   // hydrate saved work
   useEffect(() => {
     if (!data) return;
     const map: Record<string, number> = {};
+    const codeMap: Record<string, string> = {};
     for (const a of data.savedAnswers) {
       if (a.selected_index !== null) map[a.question_id] = a.selected_index;
+      if (a.code) codeMap[a.question_id] = a.code;
     }
     setAnswers(map);
-    const savedCode = data.savedAnswers.find((a) => a.code)?.code;
-    if (savedCode) setCode(savedCode);
+    setCodes(codeMap);
     if (data.attempt?.status === "in_progress") setStarted(true);
   }, [data]);
 
+  // switching question resets the debug panel and follows the question language
   useEffect(() => {
-    if (round !== 1 && current && !code) {
-      setCode(current.code ?? "");
-      if (current.language) setLanguage(current.language);
-    }
-  }, [current, round, code]);
+    setDebugResult(null);
+    if (round !== 1 && current?.language) setLanguage(current.language);
+  }, [current, round]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -123,6 +163,9 @@ function RoundPage() {
       submittedRef.current = true;
       setSubmitting(true);
       try {
+        if (round !== 1 && current) {
+          await persist({ data: { round, question_id: current.id, code } }).catch(() => {});
+        }
         await finish({
           data: {
             round,
@@ -142,7 +185,7 @@ function RoundPage() {
         setSubmitting(false);
       }
     },
-    [finish, round, code, language, current, navigate],
+    [finish, persist, round, code, language, current, navigate],
   );
 
   const { warnings } = useAntiCheat({
@@ -186,6 +229,42 @@ function RoundPage() {
     void persist({ data: { round, question_id: questionId, selected_index: optionIndex } }).catch(
       () => {},
     );
+  }
+
+  async function handleSaveCode() {
+    if (!current) return;
+    setSavingCode(true);
+    try {
+      await persist({ data: { round, question_id: current.id, code } });
+      toast.success(`Saved answer for Q${index + 1}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save this answer");
+    } finally {
+      setSavingCode(false);
+    }
+  }
+
+  async function handleDebug() {
+    if (!current) return;
+    if (!code.trim()) {
+      toast.error("Write some code before running the debugger");
+      return;
+    }
+    setDebugging(true);
+    setDebugResult(null);
+    try {
+      await persist({ data: { round, question_id: current.id, code } }).catch(() => {});
+      const result = await runDebug({
+        data: { round, question_id: current.id, code, language },
+      });
+      setDebugResult(result as DebugResult);
+      if (result.all_passed) toast.success("All checks passed");
+      else toast.warning(`${result.passed}/${result.total} checks passed`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Debug check failed");
+    } finally {
+      setDebugging(false);
+    }
   }
 
   if (isLoading || loading) {
@@ -413,14 +492,13 @@ function RoundPage() {
                     <button
                       key={q.id}
                       type="button"
-                      onClick={() => {
-                        setIndex(i);
-                        setCode(q.code ?? "");
-                      }}
+                      onClick={() => setIndex(i)}
                       className={`rounded border px-2 py-1 font-mono text-xs ${
                         i === index
                           ? "border-primary text-primary"
-                          : "border-border/60 text-muted-foreground"
+                          : codes[q.id]
+                            ? "border-success/60 text-success"
+                            : "border-border/60 text-muted-foreground"
                       }`}
                     >
                       Q{i + 1}
@@ -431,25 +509,101 @@ function RoundPage() {
             </article>
 
             <div className="glass flex h-[calc(100vh-11rem)] flex-col overflow-hidden rounded-lg">
-              <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-2">
                 <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                  editor · {language}
+                  editor · Q{index + 1} · {language}
                 </p>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="rounded border border-border/60 bg-surface-2 px-2 py-1 font-mono text-xs text-foreground"
-                >
-                  {LANGUAGES.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="rounded border border-border/60 bg-surface-2 px-2 py-1 font-mono text-xs text-foreground"
+                  >
+                    {LANGUAGES.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={debugging}
+                    onClick={() => void handleDebug()}
+                  >
+                    {debugging ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Bug className="size-3.5" />
+                    )}
+                    Run debug check
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={savingCode}
+                    onClick={() => void handleSaveCode()}
+                  >
+                    {savingCode ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    Save answer
+                  </Button>
+                </div>
               </div>
-              <div className="flex-1">
+              <div className="min-h-[45%] flex-1">
                 <CodeEditor value={code} language={language} onChange={setCode} />
               </div>
+              {debugResult ? (
+                <div className="max-h-[38%] overflow-y-auto border-t border-border/60 bg-surface-2/40 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                      debug console
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className={
+                        debugResult.all_passed
+                          ? "border-success/60 text-success"
+                          : "border-warning/60 text-warning"
+                      }
+                    >
+                      {debugResult.passed}/{debugResult.total} checks passed
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-foreground/90">{debugResult.summary}</p>
+                  <ul className="mt-3 space-y-1.5">
+                    {debugResult.test_cases.map((t, i) => (
+                      <li key={i} className="flex items-start gap-2 font-mono text-xs">
+                        {t.passed ? (
+                          <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
+                        ) : (
+                          <XCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                        )}
+                        <span className="text-muted-foreground">
+                          <span className="text-foreground">{t.name}</span> — {t.note}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {debugResult.issues.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                        remaining issues
+                      </p>
+                      <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                        {debugResult.issues.map((b, i) => (
+                          <li key={i}>
+                            › [{b.severity}] {b.issue}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         )}

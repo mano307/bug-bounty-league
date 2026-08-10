@@ -558,3 +558,113 @@ export const adminReevaluate = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/** Participant-facing debug tool: dry-runs the current code against the question's
+ *  test cases without scoring or consuming the attempt. Rounds 2 and 3 only. */
+export const debugCheck = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { round: number; question_id: string; code: string; language: string }) =>
+      z
+        .object({
+          round: z.number().int().min(2).max(3),
+          question_id: z.string().uuid(),
+          code: z.string().min(1).max(60000),
+          language: z.string().max(20),
+        })
+        .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: attempt } = await supabaseAdmin
+      .from("attempts")
+      .select("id, status")
+      .eq("user_id", context.userId)
+      .eq("round", data.round)
+      .maybeSingle();
+    if (!attempt || attempt.status !== "in_progress") throw new Error("No active attempt.");
+
+    const { data: question } = await supabaseAdmin
+      .from("questions")
+      .select("*")
+      .eq("id", data.question_id)
+      .maybeSingle();
+    if (!question) throw new Error("Question not found.");
+
+    const report = await evaluateSubmission(question, data.code, data.language);
+    const total = report.test_cases.length;
+    const passed = report.test_cases.filter((t) => t.passed).length;
+
+    return {
+      passed,
+      total,
+      all_passed: total > 0 && passed === total,
+      test_cases: report.test_cases,
+      issues: report.bugs_found,
+      summary: report.summary,
+    };
+  });
+
+/** Admin: full answer sheet for a single attempt. */
+export const adminGetAttemptDetail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { attempt_id: string }) =>
+    z.object({ attempt_id: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertAdmin(supabaseAdmin, context.userId);
+
+    const { data: attempt } = await supabaseAdmin
+      .from("attempts")
+      .select("*")
+      .eq("id", data.attempt_id)
+      .maybeSingle();
+    if (!attempt) throw new Error("Attempt not found.");
+
+    const [{ data: profile }, { data: answers }, { data: questions }] = await Promise.all([
+      supabaseAdmin
+        .from("profiles")
+        .select("full_name, register_number, department, year, section")
+        .eq("id", attempt.user_id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("answers")
+        .select("question_id, selected_index, code, updated_at")
+        .eq("attempt_id", attempt.id),
+      supabaseAdmin
+        .from("questions")
+        .select("id, title, prompt, options, correct_index, marks, language, code")
+        .eq("round", attempt.round),
+    ]);
+
+    const byId = new Map((questions ?? []).map((q) => [q.id, q]));
+    const rows = (answers ?? []).map((a) => {
+      const q = byId.get(a.question_id);
+      const options = Array.isArray(q?.options) ? (q?.options as string[]) : [];
+      return {
+        question_id: a.question_id,
+        title: q?.title ?? "Question",
+        prompt: q?.prompt ?? "",
+        options,
+        correct_index: q?.correct_index ?? null,
+        marks: Number(q?.marks ?? 0),
+        language: q?.language ?? attempt.language ?? null,
+        starter_code: q?.code ?? null,
+        selected_index: a.selected_index,
+        code: a.code,
+        updated_at: a.updated_at,
+        is_correct:
+          a.selected_index !== null && q?.correct_index !== null && q?.correct_index !== undefined
+            ? a.selected_index === q.correct_index
+            : null,
+      };
+    });
+
+    return {
+      attempt,
+      profile,
+      answers: rows.sort((a, b) => a.title.localeCompare(b.title)),
+    };
+  });

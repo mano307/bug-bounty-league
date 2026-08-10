@@ -20,6 +20,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   adminBroadcast,
+  adminGetAttemptDetail,
   adminOverview,
   adminOverrideScore,
   adminReevaluate,
@@ -35,6 +36,13 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -67,6 +75,14 @@ export function AdminPage() {
 
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [detailId, setDetailId] = useState<string | null>(null);
+
+  const fetchDetail = useServerFn(adminGetAttemptDetail);
+  const detail = useQuery({
+    queryKey: ["attempt-detail", detailId],
+    queryFn: () => fetchDetail({ data: { attempt_id: detailId! } }),
+    enabled: Boolean(detailId),
+  });
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth", replace: true });
@@ -612,6 +628,94 @@ export function AdminPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      <Dialog open={Boolean(detailId)} onOpenChange={(open) => !open && setDetailId(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Participant answer sheet</DialogTitle>
+            <DialogDescription>
+              {detail.data
+                ? `${detail.data.profile?.full_name ?? "Participant"} · ${detail.data.profile?.register_number ?? "—"} · Round ${detail.data.attempt.round} · ${detail.data.attempt.score}/${detail.data.attempt.max_score}`
+                : "Loading submission…"}
+            </DialogDescription>
+          </DialogHeader>
+          {detail.isLoading ? (
+            <Loader2 className="mx-auto size-5 animate-spin text-primary" />
+          ) : detail.data ? (
+            <div className="space-y-4">
+              {detail.data.answers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  This participant did not record any answers.
+                </p>
+              ) : null}
+              {detail.data.answers.map((ans, i) => (
+                <div key={ans.question_id} className="rounded-md border border-border/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium">
+                      {i + 1}. {ans.title}
+                    </p>
+                    {ans.is_correct === null ? null : (
+                      <Badge
+                        variant="outline"
+                        className={
+                          ans.is_correct
+                            ? "border-success/60 text-success"
+                            : "border-destructive/60 text-destructive"
+                        }
+                      >
+                        {ans.is_correct ? "Correct" : "Wrong"}
+                      </Badge>
+                    )}
+                  </div>
+                  {ans.options.length > 0 ? (
+                    <ul className="mt-3 space-y-1">
+                      {ans.options.map((opt, oi) => {
+                        const chosen = ans.selected_index === oi;
+                        const key = ans.correct_index === oi;
+                        return (
+                          <li
+                            key={oi}
+                            className={`rounded border px-2 py-1 font-mono text-xs ${
+                              key
+                                ? "border-success/60 text-success"
+                                : chosen
+                                  ? "border-destructive/60 text-destructive"
+                                  : "border-border/50 text-muted-foreground"
+                            }`}
+                          >
+                            {String.fromCharCode(65 + oi)}. {opt}
+                            {chosen ? " · chosen" : ""}
+                            {key ? " · answer key" : ""}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                  {ans.code ? (
+                    <pre className="mt-3 max-h-72 overflow-auto rounded border border-border/60 bg-surface-2/60 p-3 font-mono text-xs">
+                      {ans.code}
+                    </pre>
+                  ) : ans.options.length === 0 ? (
+                    <p className="mt-2 text-xs text-muted-foreground">No code submitted.</p>
+                  ) : null}
+                </div>
+              ))}
+              {detail.data.attempt.code ? (
+                <div className="rounded-md border border-border/60 p-4">
+                  <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                    final submitted code · {detail.data.attempt.language ?? "—"}
+                  </p>
+                  <pre className="mt-2 max-h-72 overflow-auto rounded border border-border/60 bg-surface-2/60 p-3 font-mono text-xs">
+                    {detail.data.attempt.code}
+                  </pre>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-destructive">Could not load this submission.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

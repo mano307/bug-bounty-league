@@ -468,6 +468,13 @@ export function AdminPage() {
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setDetailId(a.id)}
+                              >
+                                <Eye className="size-3.5" /> View answers
+                              </Button>
                               {a.round > 1 ? (
                                 <Button
                                   size="sm"

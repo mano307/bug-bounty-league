@@ -482,25 +482,101 @@ function RoundPage() {
             </article>
 
             <div className="glass flex h-[calc(100vh-11rem)] flex-col overflow-hidden rounded-lg">
-              <div className="flex items-center justify-between border-b border-border/60 px-4 py-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-2">
                 <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                  editor · {language}
+                  editor · Q{index + 1} · {language}
                 </p>
-                <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  className="rounded border border-border/60 bg-surface-2 px-2 py-1 font-mono text-xs text-foreground"
-                >
-                  {LANGUAGES.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    className="rounded border border-border/60 bg-surface-2 px-2 py-1 font-mono text-xs text-foreground"
+                  >
+                    {LANGUAGES.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={debugging}
+                    onClick={() => void handleDebug()}
+                  >
+                    {debugging ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Bug className="size-3.5" />
+                    )}
+                    Run debug check
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={savingCode}
+                    onClick={() => void handleSaveCode()}
+                  >
+                    {savingCode ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Save className="size-3.5" />
+                    )}
+                    Save answer
+                  </Button>
+                </div>
               </div>
-              <div className="flex-1">
+              <div className="min-h-[45%] flex-1">
                 <CodeEditor value={code} language={language} onChange={setCode} />
               </div>
+              {debugResult ? (
+                <div className="max-h-[38%] overflow-y-auto border-t border-border/60 bg-surface-2/40 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                      debug console
+                    </p>
+                    <Badge
+                      variant="outline"
+                      className={
+                        debugResult.all_passed
+                          ? "border-success/60 text-success"
+                          : "border-warning/60 text-warning"
+                      }
+                    >
+                      {debugResult.passed}/{debugResult.total} checks passed
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-xs text-foreground/90">{debugResult.summary}</p>
+                  <ul className="mt-3 space-y-1.5">
+                    {debugResult.test_cases.map((t, i) => (
+                      <li key={i} className="flex items-start gap-2 font-mono text-xs">
+                        {t.passed ? (
+                          <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" />
+                        ) : (
+                          <XCircle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                        )}
+                        <span className="text-muted-foreground">
+                          <span className="text-foreground">{t.name}</span> — {t.note}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {debugResult.issues.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                        remaining issues
+                      </p>
+                      <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                        {debugResult.issues.map((b, i) => (
+                          <li key={i}>
+                            › [{b.severity}] {b.issue}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         )}

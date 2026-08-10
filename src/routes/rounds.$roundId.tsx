@@ -3,11 +3,38 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Clock, Loader2, Send, ShieldAlert, Terminal } from "lucide-react";
+import {
+  AlertTriangle,
+  Bug,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Save,
+  Send,
+  ShieldAlert,
+  Terminal,
+  XCircle,
+} from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useAntiCheat } from "@/lib/anti-cheat";
-import { getExamPayload, saveAnswer, startAttempt, submitAttempt } from "@/lib/exam.functions";
+import {
+  debugCheck,
+  getExamPayload,
+  saveAnswer,
+  startAttempt,
+  submitAttempt,
+} from "@/lib/exam.functions";
 import { LANGUAGES, ROUND_NAMES, formatClock, seededShuffle } from "@/lib/exam-shared";
+
+type DebugResult = {
+  passed: number;
+  total: number;
+  all_passed: boolean;
+  test_cases: { name: string; passed: boolean; note: string }[];
+  issues: { issue: string; severity: string; fix: string }[];
+  summary: string;
+};
+
 import { CodeEditor } from "@/components/code-editor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

@@ -298,10 +298,17 @@ function RoundPage() {
 
   const state = data?.access?.state ?? "locked";
   if (data?.attempt && data.attempt.status !== "in_progress") {
+    const autoByWarnings =
+      data.attempt.status === "auto_submitted" &&
+      (data.attempt.warnings_count ?? 0) >= maxWarnings;
     return (
       <Notice
-        title="Round already submitted"
-        body="Your attempt for this round is locked. Head to your results to review it."
+        title={autoByWarnings ? "Auto-submitted due to warnings" : "Round already submitted"}
+        body={
+          autoByWarnings
+            ? `Your attempt was submitted automatically after ${data.attempt.warnings_count} proctoring warnings. Head to your results to review it.`
+            : "Your attempt for this round is locked. Head to your results to review it."
+        }
         action={{ label: "View results", to: "/results" }}
       />
     );

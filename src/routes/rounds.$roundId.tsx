@@ -152,6 +152,16 @@ function RoundPage() {
     return () => clearInterval(t);
   }, []);
 
+  // track full-screen state — answering is blocked whenever it is exited
+  const [isFullscreen, setIsFullscreen] = useState(true);
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+
   const deadline = data?.attempt?.started_at
     ? new Date(data.attempt.started_at).getTime() + minutes * 60_000
     : null;

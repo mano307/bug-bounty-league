@@ -600,6 +600,7 @@ export const debugCheck = createServerFn({ method: "POST" })
       .from("questions")
       .select("*")
       .eq("id", data.question_id)
+      .eq("round", data.round)
       .maybeSingle();
     if (!question) throw new Error("Question not found.");
 

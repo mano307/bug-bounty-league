@@ -162,6 +162,7 @@ export function useAntiCheat({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCut);
       document.removeEventListener("paste", onPaste);
       document.removeEventListener("contextmenu", onContext);
       document.removeEventListener("keydown", onKey);

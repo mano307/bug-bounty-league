@@ -299,7 +299,13 @@ export const submitAttempt = createServerFn({ method: "POST" })
       register_number: profile?.register_number ?? "",
       event_type: data.auto_submitted ? "auto_submitted" : "submitted",
       round: data.round,
-      detail: `Submitted Round ${data.round} · ${finalScore}/${maxScore}`,
+      detail: data.auto_submitted
+        ? `Auto-submitted Round ${data.round} ${
+            data.auto_reason === "warnings"
+              ? `due to warning limit (${warnings} warnings)`
+              : "— time expired"
+          } · ${finalScore}/${maxScore}`
+        : `Submitted Round ${data.round} · ${finalScore}/${maxScore}`,
     });
 
     return updated;

@@ -4,11 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type ViolationReason =
   | "Tab switched"
+  | "Tab close attempted"
   | "Window lost focus"
   | "Copy attempted"
   | "Paste attempted"
+  | "Cut attempted"
   | "Right click attempted"
   | "Developer tools shortcut"
+  | "Print attempted"
   | "Page refresh attempted"
   | "Back navigation attempted"
   | "Full screen exited";

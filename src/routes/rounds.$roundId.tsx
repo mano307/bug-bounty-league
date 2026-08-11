@@ -168,7 +168,7 @@ function RoundPage() {
   const remaining = deadline ? deadline - now : minutes * 60_000;
 
   const doSubmit = useCallback(
-    async (auto: boolean) => {
+    async (auto: boolean, reason: "warnings" | "time" = "time") => {
       if (submittedRef.current) return;
       submittedRef.current = true;
       setSubmitting(true);
@@ -180,13 +180,20 @@ function RoundPage() {
           data: {
             round,
             auto_submitted: auto,
+            ...(auto ? { auto_reason: reason } : {}),
             ...(round === 1
               ? {}
               : { code, language, ...(current ? { question_id: current.id } : {}) }),
           },
         });
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
-        toast.success(auto ? "Time up — attempt submitted" : "Attempt submitted");
+        toast.success(
+          auto
+            ? reason === "warnings"
+              ? "Auto-submitted — warning limit reached"
+              : "Time up — attempt submitted"
+            : "Attempt submitted",
+        );
         navigate({ to: "/results" });
       } catch (err) {
         submittedRef.current = false;
@@ -203,7 +210,7 @@ function RoundPage() {
     round,
     maxWarnings,
     active: started && !submittedRef.current,
-    onLimitExceeded: () => void doSubmit(true),
+    onLimitExceeded: () => void doSubmit(true, "warnings"),
     actorName: profile?.full_name ?? "",
     registerNumber: profile?.register_number ?? "",
   });
@@ -211,7 +218,7 @@ function RoundPage() {
   // auto-submit on expiry
   useEffect(() => {
     if (!started || !deadline || submittedRef.current) return;
-    if (remaining <= 0 && (settings?.auto_submit ?? true)) void doSubmit(true);
+    if (remaining <= 0 && (settings?.auto_submit ?? true)) void doSubmit(true, "time");
   }, [remaining, started, deadline, settings?.auto_submit, doSubmit]);
 
   // periodic autosave for code rounds

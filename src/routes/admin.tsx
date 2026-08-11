@@ -7,6 +7,7 @@ import {
   Activity,
   AlertTriangle,
   Bot,
+  Eye,
   Loader2,
   Lock,
   Megaphone,

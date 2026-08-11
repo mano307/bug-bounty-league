@@ -51,9 +51,17 @@ export function useAntiCheat({
       const n = countRef.current;
       setCount(n);
 
-      toast.warning(`Warning ${n} of ${maxWarnings}`, {
-        description: `${reason}. Further violations may result in automatic submission.`,
-      });
+      const isFinal = n >= maxWarnings;
+
+      if (isFinal) {
+        toast.error(`Final warning ${n} of ${maxWarnings} — ${reason}`, {
+          description: "Warning limit reached. Your attempt is being submitted automatically.",
+        });
+      } else {
+        toast.warning(`Warning ${n} of ${maxWarnings}`, {
+          description: `${reason}. ${maxWarnings - n} warning(s) left before auto-submission.`,
+        });
+      }
 
       void supabase.from("warnings").insert({
         user_id: userId,
@@ -67,12 +75,11 @@ export function useAntiCheat({
         register_number: registerNumber,
         event_type: "warning",
         round,
-        detail: `Warning #${n} — ${reason}`,
+        detail: `Warning #${n}/${maxWarnings} — ${reason}`,
       });
 
-      if (n > maxWarnings) {
+      if (isFinal) {
         firedRef.current = true;
-        toast.error("Warning limit exceeded — submitting your attempt.");
         onLimitExceeded();
       }
     },

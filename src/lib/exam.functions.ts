@@ -184,6 +184,7 @@ export const submitAttempt = createServerFn({ method: "POST" })
       language?: string;
       question_id?: string;
       auto_submitted?: boolean;
+      auto_reason?: "warnings" | "time";
     }) =>
       z
         .object({
@@ -192,6 +193,7 @@ export const submitAttempt = createServerFn({ method: "POST" })
           language: z.string().max(20).optional(),
           question_id: z.string().uuid().optional(),
           auto_submitted: z.boolean().optional(),
+          auto_reason: z.enum(["warnings", "time"]).optional(),
         })
         .parse(input),
   )

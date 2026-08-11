@@ -44,8 +44,17 @@ export const getExamPayload = createServerFn({ method: "POST" })
           .order("created_at", { ascending: true }),
       ]);
 
+    // Only expose question content when the round is actually available to this
+    // participant (or when the caller is an organiser).
+    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+    const allowedStates = ["unlocked", "in_progress", "submitted", "qualified"];
+    const roundAvailable = Boolean(isAdmin) || (!!access && allowedStates.includes(access.state));
+
     let saved: { question_id: string; selected_index: number | null; code: string | null }[] = [];
-    if (attempt) {
+    if (attempt && roundAvailable) {
       const { data: rows } = await supabaseAdmin
         .from("answers")
         .select("question_id, selected_index, code")
@@ -58,9 +67,11 @@ export const getExamPayload = createServerFn({ method: "POST" })
       access,
       attempt,
       savedAnswers: saved,
-      questions: (questions ?? []).map(sanitizeQuestion),
+      locked: !roundAvailable,
+      questions: roundAvailable ? (questions ?? []).map(sanitizeQuestion) : [],
     };
   });
+
 
 export const startAttempt = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

@@ -97,6 +97,10 @@ export function useAntiCheat({
       e.preventDefault();
       record("Copy attempted");
     };
+    const onCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      record("Cut attempted");
+    };
     const onPaste = (e: ClipboardEvent) => {
       e.preventDefault();
       record("Paste attempted");
@@ -120,12 +124,21 @@ export function useAntiCheat({
         e.preventDefault();
         record("Page refresh attempted");
       }
+      if ((e.ctrlKey || e.metaKey) && k === "p") {
+        e.preventDefault();
+        record("Print attempted");
+      }
+      if ((e.ctrlKey || e.metaKey) && k === "w") {
+        e.preventDefault();
+        record("Tab close attempted");
+      }
     };
     const onPopState = () => {
       history.pushState(null, "", location.href);
       record("Back navigation attempted");
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      record("Tab close attempted");
       e.preventDefault();
       e.returnValue = "";
     };

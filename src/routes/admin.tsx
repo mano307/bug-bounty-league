@@ -77,6 +77,7 @@ export function AdminPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [gradeRound, setGradeRound] = useState<0 | 1 | 2 | 3>(0);
 
   const fetchDetail = useServerFn(adminGetAttemptDetail);
   const detail = useQuery({
@@ -441,12 +442,30 @@ export function AdminPage() {
           </TabsContent>
 
           <TabsContent value="grading">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {([0, 1, 2, 3] as const).map((r) => {
+                const n = attempts.filter(
+                  (a) => a.status !== "in_progress" && (r === 0 || a.round === r),
+                ).length;
+                return (
+                  <Button
+                    key={r}
+                    size="sm"
+                    variant={gradeRound === r ? "default" : "outline"}
+                    onClick={() => setGradeRound(r)}
+                  >
+                    {r === 0 ? "All rounds" : `Round ${r}`} ({n})
+                  </Button>
+                );
+              })}
+            </div>
             <div className="glass overflow-x-auto rounded-lg p-4">
               <table className="w-full text-sm">
                 <thead className="border-b border-border/60 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-left">Participant</th>
                     <th className="px-3 py-2 text-left">Round</th>
+                    <th className="px-3 py-2 text-left">Status</th>
                     <th className="px-3 py-2 text-right">Score</th>
                     <th className="px-3 py-2 text-right">Time</th>
                     <th className="px-3 py-2 text-right">Actions</th>
@@ -454,14 +473,34 @@ export function AdminPage() {
                 </thead>
                 <tbody>
                   {attempts
-                    .filter((a) => a.status !== "in_progress")
+                    .filter(
+                      (a) =>
+                        a.status !== "in_progress" &&
+                        (gradeRound === 0 || a.round === gradeRound),
+                    )
                     .map((a) => {
                       const who = profiles.find((p) => p.id === a.user_id);
+                      const autoWarn =
+                        a.status === "auto_submitted" &&
+                        (a.warnings_count ?? 0) >= (settings?.max_warnings ?? 3);
                       return (
                         <tr key={a.id} className="border-b border-border/40 last:border-0">
                           <td className="px-3 py-2">{who?.full_name ?? "—"}</td>
                           <td className="px-3 py-2 font-mono">R{a.round}</td>
+                          <td className="px-3 py-2">
+                            {a.status === "auto_submitted" ? (
+                              <Badge variant="outline" className="border-warning/60 text-warning">
+                                <AlertTriangle className="size-3" />
+                                {autoWarn
+                                  ? `Auto-submitted · ${a.warnings_count} warnings`
+                                  : "Auto-submitted · time up"}
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline">Submitted</Badge>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-right font-mono text-primary">
+
                             {a.score}/{a.max_score}
                           </td>
                           <td className="px-3 py-2 text-right font-mono text-muted-foreground">

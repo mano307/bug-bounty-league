@@ -184,6 +184,7 @@ export const submitAttempt = createServerFn({ method: "POST" })
       language?: string;
       question_id?: string;
       auto_submitted?: boolean;
+      auto_reason?: "warnings" | "time";
     }) =>
       z
         .object({
@@ -192,6 +193,7 @@ export const submitAttempt = createServerFn({ method: "POST" })
           language: z.string().max(20).optional(),
           question_id: z.string().uuid().optional(),
           auto_submitted: z.boolean().optional(),
+          auto_reason: z.enum(["warnings", "time"]).optional(),
         })
         .parse(input),
   )
@@ -297,7 +299,13 @@ export const submitAttempt = createServerFn({ method: "POST" })
       register_number: profile?.register_number ?? "",
       event_type: data.auto_submitted ? "auto_submitted" : "submitted",
       round: data.round,
-      detail: `Submitted Round ${data.round} · ${finalScore}/${maxScore}`,
+      detail: data.auto_submitted
+        ? `Auto-submitted Round ${data.round} ${
+            data.auto_reason === "warnings"
+              ? `due to warning limit (${warnings} warnings)`
+              : "— time expired"
+          } · ${finalScore}/${maxScore}`
+        : `Submitted Round ${data.round} · ${finalScore}/${maxScore}`,
     });
 
     return updated;

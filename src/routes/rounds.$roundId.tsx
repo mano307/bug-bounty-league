@@ -168,7 +168,7 @@ function RoundPage() {
   const remaining = deadline ? deadline - now : minutes * 60_000;
 
   const doSubmit = useCallback(
-    async (auto: boolean) => {
+    async (auto: boolean, reason: "warnings" | "time" = "time") => {
       if (submittedRef.current) return;
       submittedRef.current = true;
       setSubmitting(true);
@@ -180,13 +180,20 @@ function RoundPage() {
           data: {
             round,
             auto_submitted: auto,
+            ...(auto ? { auto_reason: reason } : {}),
             ...(round === 1
               ? {}
               : { code, language, ...(current ? { question_id: current.id } : {}) }),
           },
         });
         if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
-        toast.success(auto ? "Time up — attempt submitted" : "Attempt submitted");
+        toast.success(
+          auto
+            ? reason === "warnings"
+              ? "Auto-submitted — warning limit reached"
+              : "Time up — attempt submitted"
+            : "Attempt submitted",
+        );
         navigate({ to: "/results" });
       } catch (err) {
         submittedRef.current = false;
@@ -203,7 +210,7 @@ function RoundPage() {
     round,
     maxWarnings,
     active: started && !submittedRef.current,
-    onLimitExceeded: () => void doSubmit(true),
+    onLimitExceeded: () => void doSubmit(true, "warnings"),
     actorName: profile?.full_name ?? "",
     registerNumber: profile?.register_number ?? "",
   });
@@ -211,7 +218,7 @@ function RoundPage() {
   // auto-submit on expiry
   useEffect(() => {
     if (!started || !deadline || submittedRef.current) return;
-    if (remaining <= 0 && (settings?.auto_submit ?? true)) void doSubmit(true);
+    if (remaining <= 0 && (settings?.auto_submit ?? true)) void doSubmit(true, "time");
   }, [remaining, started, deadline, settings?.auto_submit, doSubmit]);
 
   // periodic autosave for code rounds
@@ -291,10 +298,17 @@ function RoundPage() {
 
   const state = data?.access?.state ?? "locked";
   if (data?.attempt && data.attempt.status !== "in_progress") {
+    const autoByWarnings =
+      data.attempt.status === "auto_submitted" &&
+      (data.attempt.warnings_count ?? 0) >= maxWarnings;
     return (
       <Notice
-        title="Round already submitted"
-        body="Your attempt for this round is locked. Head to your results to review it."
+        title={autoByWarnings ? "Auto-submitted due to warnings" : "Round already submitted"}
+        body={
+          autoByWarnings
+            ? `Your attempt was submitted automatically after ${data.attempt.warnings_count} proctoring warnings. Head to your results to review it.`
+            : "Your attempt for this round is locked. Head to your results to review it."
+        }
         action={{ label: "View results", to: "/results" }}
       />
     );
@@ -328,7 +342,10 @@ function RoundPage() {
             <li>› Duration: {minutes} minutes. The timer starts the moment you begin.</li>
             <li>› {questions.length} question{questions.length === 1 ? "" : "s"} in this round.</li>
             <li>› Full-screen is enforced. Tab switching, copy, paste and right-click are logged.</li>
-            <li>› {maxWarnings} warnings allowed — the next violation submits your attempt.</li>
+            <li>
+              › Tab switching, closing the tab, copy, paste, cut, right click, printing and dev
+              tools all raise a warning — warning #{maxWarnings} auto-submits your attempt.
+            </li>
           </ul>
           <div className="mt-6 flex gap-3">
             <Button onClick={handleStart} className="flex-1">

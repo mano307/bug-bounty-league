@@ -4,11 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type ViolationReason =
   | "Tab switched"
+  | "Tab close attempted"
   | "Window lost focus"
   | "Copy attempted"
   | "Paste attempted"
+  | "Cut attempted"
   | "Right click attempted"
   | "Developer tools shortcut"
+  | "Print attempted"
   | "Page refresh attempted"
   | "Back navigation attempted"
   | "Full screen exited";
@@ -48,9 +51,17 @@ export function useAntiCheat({
       const n = countRef.current;
       setCount(n);
 
-      toast.warning(`Warning ${n} of ${maxWarnings}`, {
-        description: `${reason}. Further violations may result in automatic submission.`,
-      });
+      const isFinal = n >= maxWarnings;
+
+      if (isFinal) {
+        toast.error(`Final warning ${n} of ${maxWarnings} — ${reason}`, {
+          description: "Warning limit reached. Your attempt is being submitted automatically.",
+        });
+      } else {
+        toast.warning(`Warning ${n} of ${maxWarnings}`, {
+          description: `${reason}. ${maxWarnings - n} warning(s) left before auto-submission.`,
+        });
+      }
 
       void supabase.from("warnings").insert({
         user_id: userId,
@@ -64,12 +75,11 @@ export function useAntiCheat({
         register_number: registerNumber,
         event_type: "warning",
         round,
-        detail: `Warning #${n} — ${reason}`,
+        detail: `Warning #${n}/${maxWarnings} — ${reason}`,
       });
 
-      if (n > maxWarnings) {
+      if (isFinal) {
         firedRef.current = true;
-        toast.error("Warning limit exceeded — submitting your attempt.");
         onLimitExceeded();
       }
     },
@@ -86,6 +96,10 @@ export function useAntiCheat({
     const onCopy = (e: ClipboardEvent) => {
       e.preventDefault();
       record("Copy attempted");
+    };
+    const onCut = (e: ClipboardEvent) => {
+      e.preventDefault();
+      record("Cut attempted");
     };
     const onPaste = (e: ClipboardEvent) => {
       e.preventDefault();
@@ -110,12 +124,21 @@ export function useAntiCheat({
         e.preventDefault();
         record("Page refresh attempted");
       }
+      if ((e.ctrlKey || e.metaKey) && k === "p") {
+        e.preventDefault();
+        record("Print attempted");
+      }
+      if ((e.ctrlKey || e.metaKey) && k === "w") {
+        e.preventDefault();
+        record("Tab close attempted");
+      }
     };
     const onPopState = () => {
       history.pushState(null, "", location.href);
       record("Back navigation attempted");
     };
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      record("Tab close attempted");
       e.preventDefault();
       e.returnValue = "";
     };
@@ -127,6 +150,7 @@ export function useAntiCheat({
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("blur", onBlur);
     document.addEventListener("copy", onCopy);
+    document.addEventListener("cut", onCut);
     document.addEventListener("paste", onPaste);
     document.addEventListener("contextmenu", onContext);
     document.addEventListener("keydown", onKey);
@@ -138,6 +162,7 @@ export function useAntiCheat({
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCut);
       document.removeEventListener("paste", onPaste);
       document.removeEventListener("contextmenu", onContext);
       document.removeEventListener("keydown", onKey);

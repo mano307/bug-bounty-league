@@ -77,6 +77,7 @@ export function AdminPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [gradeRound, setGradeRound] = useState<0 | 1 | 2 | 3>(0);
 
   const fetchDetail = useServerFn(adminGetAttemptDetail);
   const detail = useQuery({

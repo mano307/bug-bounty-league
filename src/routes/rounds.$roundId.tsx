@@ -348,6 +348,31 @@ function RoundPage() {
 
   return (
     <div className="hero-bg flex min-h-screen flex-col select-none">
+      {!isFullscreen ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/95 px-4 backdrop-blur">
+          <div className="glass w-full max-w-md rounded-lg p-8 text-center">
+            <span className="mx-auto grid size-10 place-items-center rounded-md bg-warning/10 text-warning">
+              <ShieldAlert className="size-5" />
+            </span>
+            <h2 className="mt-4 text-xl font-bold">Full screen required</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Answering is paused because you left full screen. Return to full screen to continue —
+              the timer keeps running and this exit has been logged.
+            </p>
+            <Button
+              className="mt-6 w-full"
+              onClick={() =>
+                void document.documentElement.requestFullscreen().catch(() => {
+                  toast.error("Your browser blocked full screen — press F11 to continue");
+                })
+              }
+            >
+              Return to full screen
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">

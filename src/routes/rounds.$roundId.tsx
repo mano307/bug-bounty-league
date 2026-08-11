@@ -335,7 +335,10 @@ function RoundPage() {
             <li>› Duration: {minutes} minutes. The timer starts the moment you begin.</li>
             <li>› {questions.length} question{questions.length === 1 ? "" : "s"} in this round.</li>
             <li>› Full-screen is enforced. Tab switching, copy, paste and right-click are logged.</li>
-            <li>› {maxWarnings} warnings allowed — the next violation submits your attempt.</li>
+            <li>
+              › Tab switching, closing the tab, copy, paste, cut, right click, printing and dev
+              tools all raise a warning — warning #{maxWarnings} auto-submits your attempt.
+            </li>
           </ul>
           <div className="mt-6 flex gap-3">
             <Button onClick={handleStart} className="flex-1">

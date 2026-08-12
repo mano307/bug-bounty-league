@@ -466,7 +466,9 @@ export function AdminPage() {
                     <th className="px-3 py-2 text-left">Participant</th>
                     <th className="px-3 py-2 text-left">Round</th>
                     <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Warnings</th>
                     <th className="px-3 py-2 text-right">Score</th>
+
                     <th className="px-3 py-2 text-right">Time</th>
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>

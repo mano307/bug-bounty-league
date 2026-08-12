@@ -466,7 +466,9 @@ export function AdminPage() {
                     <th className="px-3 py-2 text-left">Participant</th>
                     <th className="px-3 py-2 text-left">Round</th>
                     <th className="px-3 py-2 text-left">Status</th>
+                    <th className="px-3 py-2 text-left">Warnings</th>
                     <th className="px-3 py-2 text-right">Score</th>
+
                     <th className="px-3 py-2 text-right">Time</th>
                     <th className="px-3 py-2 text-right">Actions</th>
                   </tr>
@@ -483,6 +485,10 @@ export function AdminPage() {
                       const autoWarn =
                         a.status === "auto_submitted" &&
                         (a.warnings_count ?? 0) >= (settings?.max_warnings ?? 3);
+                      const myWarnings = (data?.warnings ?? []).filter(
+                        (w) => w.user_id === a.user_id && w.round === a.round,
+                      );
+                      const warnCount = a.warnings_count ?? myWarnings.length;
                       return (
                         <tr key={a.id} className="border-b border-border/40 last:border-0">
                           <td className="px-3 py-2">{who?.full_name ?? "—"}</td>
@@ -499,7 +505,28 @@ export function AdminPage() {
                               <Badge variant="outline">Submitted</Badge>
                             )}
                           </td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant="outline"
+                              className={
+                                warnCount > 0 ? "border-warning/60 text-warning" : undefined
+                              }
+                            >
+                              {warnCount} warning{warnCount === 1 ? "" : "s"}
+                            </Badge>
+                            {myWarnings.length ? (
+                              <p className="mt-1 max-w-[220px] text-[11px] leading-tight text-muted-foreground">
+                                {myWarnings
+                                  .slice()
+                                  .sort((x, y) => x.warning_number - y.warning_number)
+                                  .map((w) => `#${w.warning_number} ${w.reason}`)
+                                  .join(" · ")}
+                              </p>
+                            ) : null}
+                          </td>
                           <td className="px-3 py-2 text-right font-mono text-primary">
+
+
 
                             {a.score}/{a.max_score}
                           </td>

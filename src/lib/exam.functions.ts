@@ -5,12 +5,14 @@ import { evaluateSubmission } from "./evaluate.server";
 import {
   assertAdmin,
   buildLeaderboard,
+  pickMcqSubset,
   questionInputSchema,
   sanitizeQuestion,
   scoreMcq,
   settingsInputSchema,
   compact,
 } from "./exam.server";
+
 
 export const getExamPayload = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -62,15 +64,20 @@ export const getExamPayload = createServerFn({ method: "POST" })
       saved = rows ?? [];
     }
 
+    // Round 1 serves a random 20-question subset of the 30-question bank.
+    const served =
+      data.round === 1 ? pickMcqSubset(questions ?? [], userId) : (questions ?? []);
+
     return {
       settings,
       access,
       attempt,
       savedAnswers: saved,
       locked: !roundAvailable,
-      questions: roundAvailable ? (questions ?? []).map(sanitizeQuestion) : [],
+      questions: roundAvailable ? served.map(sanitizeQuestion) : [],
     };
   });
+
 
 
 export const startAttempt = createServerFn({ method: "POST" })
@@ -234,7 +241,13 @@ export const submitAttempt = createServerFn({ method: "POST" })
     let aiReport: unknown = null;
 
     if (data.round === 1) {
-      const result = await scoreMcq(supabaseAdmin, attempt.id, Number(settings?.negative_marking ?? 0));
+      const result = await scoreMcq(
+        supabaseAdmin,
+        attempt.id,
+        Number(settings?.negative_marking ?? 0),
+        userId,
+      );
+
       ({ score, maxScore, correct, wrong, skipped } = result);
     } else {
       const { data: question } = data.question_id

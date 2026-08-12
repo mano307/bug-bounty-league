@@ -1,9 +1,23 @@
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { seededShuffle } from "./exam-shared";
 
 type Admin = SupabaseClient<Database>;
 type QuestionRow = Database["public"]["Tables"]["questions"]["Row"];
+
+/** Round 1 serves a random subset of the full MCQ bank to each participant. */
+export const MCQ_SERVED_COUNT = 20;
+
+/**
+ * Deterministic per-participant pick: the same user always receives the same
+ * 20 questions, so reloads and scoring stay consistent.
+ */
+export function pickMcqSubset<T extends { id: string }>(questions: T[], userId: string): T[] {
+  if (questions.length <= MCQ_SERVED_COUNT) return questions;
+  return seededShuffle(questions, `mcq:${userId}`).slice(0, MCQ_SERVED_COUNT);
+}
+
 
 export type PublicQuestion = {
   id: string;
@@ -45,19 +59,28 @@ export async function assertAdmin(admin: Admin, userId: string) {
   if (!data?.some((r) => r.role === "admin")) throw new Error("Forbidden");
 }
 
-export async function scoreMcq(admin: Admin, attemptId: string, negative: number) {
+export async function scoreMcq(
+  admin: Admin,
+  attemptId: string,
+  negative: number,
+  userId: string,
+) {
   const { data: answers } = await admin
     .from("answers")
     .select("question_id, selected_index")
     .eq("attempt_id", attemptId);
 
-  const { data: questions } = await admin
+  const { data: bank } = await admin
     .from("questions")
     .select("id, correct_index, marks")
     .eq("round", 1)
-    .eq("active", true);
+    .eq("active", true)
+    .order("created_at", { ascending: true });
 
-  const byId = new Map((questions ?? []).map((q) => [q.id, q]));
+  // Score only the subset this participant was actually served.
+  const questions = pickMcqSubset(bank ?? [], userId);
+
+  const byId = new Map(questions.map((q) => [q.id, q]));
   const answered = new Map((answers ?? []).map((a) => [a.question_id, a.selected_index]));
 
   let score = 0;
@@ -66,7 +89,8 @@ export async function scoreMcq(admin: Admin, attemptId: string, negative: number
   let wrong = 0;
   let skipped = 0;
 
-  for (const q of questions ?? []) {
+  for (const q of questions) {
+
     maxScore += Number(q.marks);
     const picked = answered.get(q.id);
     if (picked === null || picked === undefined) {

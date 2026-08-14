@@ -15,6 +15,7 @@ import {
   Radio,
   Settings2,
   ShieldCheck,
+  Trash2,
   Users,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
@@ -22,6 +23,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   adminBroadcast,
+  adminDeleteParticipants,
   adminGetAttemptDetail,
   adminOverview,
   adminOverrideScore,
@@ -74,6 +76,7 @@ export function AdminPage() {
   const broadcast = useServerFn(adminBroadcast);
   const overrideScore = useServerFn(adminOverrideScore);
   const reevaluate = useServerFn(adminReevaluate);
+  const deleteParticipants = useServerFn(adminDeleteParticipants);
 
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState("");
@@ -330,6 +333,25 @@ export function AdminPage() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="destructive"
+                  disabled={selected.length === 0}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Permanently delete ${selected.length} selected participant(s)? This cannot be undone.`,
+                      )
+                    )
+                      return;
+                    mutate.mutate(async () => {
+                      await deleteParticipants({ data: { user_ids: selected } });
+                      setSelected([]);
+                    });
+                  }}
+                >
+                  <Trash2 className="size-3.5" /> Delete selected
+                </Button>
+                <Button
+                  size="sm"
                   variant="outline"
                   disabled={profiles.length === 0}
                   onClick={downloadParticipantsCsv}
@@ -347,12 +369,13 @@ export function AdminPage() {
                       <th className="px-3 py-2 text-left">Rounds</th>
                       <th className="px-3 py-2 text-right">Score</th>
                       <th className="px-3 py-2 text-right">Warnings</th>
+                      <th className="px-3 py-2 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                           Loading…
                         </td>
                       </tr>
@@ -407,6 +430,28 @@ export function AdminPage() {
                             </td>
                             <td className="px-3 py-2 text-right font-mono text-muted-foreground">
                               {mine.reduce((s, a) => s + Number(a.warnings_count ?? 0), 0)}
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7 text-destructive hover:bg-destructive/10"
+                                title="Delete participant"
+                                onClick={() => {
+                                  if (
+                                    !window.confirm(
+                                      `Permanently delete ${p.full_name}? This cannot be undone.`,
+                                    )
+                                  )
+                                    return;
+                                  mutate.mutate(async () => {
+                                    await deleteParticipants({ data: { user_ids: [p.id] } });
+                                    setSelected((prev) => prev.filter((id) => id !== p.id));
+                                  });
+                                }}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
                             </td>
                           </tr>
                         );

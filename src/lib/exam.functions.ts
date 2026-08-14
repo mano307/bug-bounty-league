@@ -14,6 +14,47 @@ import {
 } from "./exam.server";
 
 
+export const adminDeleteParticipants = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { user_ids: string[] }) =>
+    z.object({ user_ids: z.array(z.string().uuid()).min(1) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await assertAdmin(supabaseAdmin, context.userId);
+
+    const { data: profiles } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, register_number")
+      .in("id", data.user_ids);
+
+    const results = await Promise.allSettled(
+      data.user_ids.map((id) => supabaseAdmin.auth.admin.deleteUser(id)),
+    );
+
+    const failed = results
+      .map((r, i) => ({ r, id: data.user_ids[i] }))
+      .filter(({ r }) => r.status === "rejected")
+      .map(({ id }) => id);
+
+    if (failed.length > 0) {
+      throw new Error(`Failed to delete ${failed.length} participant(s).`);
+    }
+
+    await supabaseAdmin.from("activity_log").insert(
+      (profiles ?? []).map((p) => ({
+        user_id: p.id,
+        actor_name: p.full_name,
+        register_number: p.register_number,
+        event_type: "participant_deleted",
+        detail: `Participant deleted by admin`,
+      })),
+    );
+
+    return { deleted: data.user_ids.length };
+  });
+
+
 export const getExamPayload = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { round: number }) =>

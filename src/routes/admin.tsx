@@ -328,6 +328,14 @@ export function AdminPage() {
 
                   Eliminate
                 </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={profiles.length === 0}
+                  onClick={downloadParticipantsCsv}
+                >
+                  <Download className="size-3.5" /> Download CSV
+                </Button>
               </div>
 
               <div className="overflow-x-auto">

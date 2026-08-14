@@ -333,6 +333,25 @@ export function AdminPage() {
                 </Button>
                 <Button
                   size="sm"
+                  variant="destructive"
+                  disabled={selected.length === 0}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `Permanently delete ${selected.length} selected participant(s)? This cannot be undone.`,
+                      )
+                    )
+                      return;
+                    mutate.mutate(async () => {
+                      await deleteParticipants({ data: { user_ids: selected } });
+                      setSelected([]);
+                    });
+                  }}
+                >
+                  <Trash2 className="size-3.5" /> Delete selected
+                </Button>
+                <Button
+                  size="sm"
                   variant="outline"
                   disabled={profiles.length === 0}
                   onClick={downloadParticipantsCsv}

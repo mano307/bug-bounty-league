@@ -431,6 +431,28 @@ export function AdminPage() {
                             <td className="px-3 py-2 text-right font-mono text-muted-foreground">
                               {mine.reduce((s, a) => s + Number(a.warnings_count ?? 0), 0)}
                             </td>
+                            <td className="px-3 py-2 text-center">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="size-7 text-destructive hover:bg-destructive/10"
+                                title="Delete participant"
+                                onClick={() => {
+                                  if (
+                                    !window.confirm(
+                                      `Permanently delete ${p.full_name}? This cannot be undone.`,
+                                    )
+                                  )
+                                    return;
+                                  mutate.mutate(async () => {
+                                    await deleteParticipants({ data: { user_ids: [p.id] } });
+                                    setSelected((prev) => prev.filter((id) => id !== p.id));
+                                  });
+                                }}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </td>
                           </tr>
                         );
                       })

@@ -76,6 +76,7 @@ export function AdminPage() {
   const broadcast = useServerFn(adminBroadcast);
   const overrideScore = useServerFn(adminOverrideScore);
   const reevaluate = useServerFn(adminReevaluate);
+  const deleteParticipants = useServerFn(adminDeleteParticipants);
 
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState("");

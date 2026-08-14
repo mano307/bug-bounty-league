@@ -168,6 +168,40 @@ export function AdminPage() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
+  function downloadParticipantsCsv() {
+    const headers = ["Name", "Register Number", "Email", "Department", "Year", "Section"];
+    const rows = profiles.map((p) => [
+      p.full_name,
+      p.register_number,
+      p.email,
+      p.department,
+      p.year,
+      p.section,
+    ]);
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row
+          .map((cell) => {
+            const value = String(cell ?? "").replace(/"/g, '""');
+            return value.includes(",") || value.includes('"') || value.includes("\n")
+              ? `"${value}"`
+              : value;
+          })
+          .join(","),
+      )
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${settings?.event_name ?? "DebugX"}_participants.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="hero-bg min-h-screen">
       <SiteHeader />

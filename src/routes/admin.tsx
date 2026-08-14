@@ -369,12 +369,13 @@ export function AdminPage() {
                       <th className="px-3 py-2 text-left">Rounds</th>
                       <th className="px-3 py-2 text-right">Score</th>
                       <th className="px-3 py-2 text-right">Warnings</th>
+                      <th className="px-3 py-2 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {isLoading ? (
                       <tr>
-                        <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                        <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                           Loading…
                         </td>
                       </tr>

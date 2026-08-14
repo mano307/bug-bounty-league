@@ -15,6 +15,7 @@ import {
   Radio,
   Settings2,
   ShieldCheck,
+  Trash2,
   Users,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
